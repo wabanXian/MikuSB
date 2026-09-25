@@ -19,6 +19,7 @@ This document tracks the local work to turn MikuSB from a full GM sandbox into a
 - `Progression.PlayerLevel`, `PlayerExp`, `Vigor`, `Money`, `Gold`, and `Silver` for starting account state.
 - `Progression.StarterCharacters` for explicit starter character GDPL entries.
 - `Progression.StarterRewards` for GDPL reward rows granted on account creation.
+- `Progression.AutoCompleteNewJourney` to mark only `新たな旅路` completed on login, which opens the legacy story path without completing later chapters.
 
 `Sandbox` keeps the original behavior so existing GM-style usage is not broken. Set `ServerOption.GameMode` to `Progression` to use the new limited starter flow.
 
@@ -39,7 +40,8 @@ Example config shape:
     "StarterCharacters": [],
     "StarterRewards": [
       [5, 4, 1, 1, 1000]
-    ]
+    ],
+    "AutoCompleteNewJourney": true
   }
 }
 ```
@@ -126,3 +128,8 @@ Testing note: close the running server process before a full `dotnet build`, bec
 
 - `新たな旅路` is stored in the client resources as main chapter id `25`; this is an internal resource id, not the visible story chapter number.
 - The claimable chest on the `新たな旅路` map matches that internal chapter's 12-star `StarAward`. New-prologue settlement now tries to claim all available awards for resource chapter `25` after each `新たな旅路` node settlement, merges the granted reward sync into the settlement sync, and appends those rewards to `tbShowAward`. The existing chapter-award claim mask prevents repeated grants.
+
+## 2026-09-25 new journey skip and shop follow-up
+
+- Added `Progression.AutoCompleteNewJourney`, defaulting to `true`, so progression accounts can skip the two `新たな旅路` chapter blocks and unlock the legacy story path without using the global `/quest complete_all` testing switch. The helper only marks internal resource chapter id `25` levels as passed and claims its chapter-star award once.
+- Added a minimal `ShopLogic_GetGoodsList` handler that returns an empty ordinary-shop list instead of logging a missing CallGS handler. The current server still has detailed purchase support under `IBLogic_*`; full ordinary-shop modeling against `Resources/shop/goods.json` remains separate work.

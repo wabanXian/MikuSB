@@ -32,6 +32,9 @@ public class QuestManager(PlayerInstance player) : BasePlayerManager(player)
     private const uint LevelStarMask = 0b111;
     private const int MaxChapterStarAwardIndex = 31;
     private const uint LegacyUnlockedLevelPassTime = 1_700_000_000;
+    private const bool NewJourneyIsMainChapter = true;
+    private const uint NewJourneyDifficult = 1;
+    private const uint NewJourneyInternalChapterId = 25;
     private static readonly Logger Logger = new("Quest");
     private readonly SemaphoreSlim settlementLock = new(1, 1);
     private bool allLevelsCompletedForTesting = player.Data.CompleteAllQuestLevels;
@@ -108,6 +111,57 @@ public class QuestManager(PlayerInstance player) : BasePlayerManager(player)
             DatabaseHelper.SaveCompleteAllQuestLevels(Player.Data);
             Logger.Info($"All quest levels updated for testing. uid={Player.Uid} completed={completed} levelCount={levelCount}");
             return new QuestCompletionResult(levelCount, sync);
+        }
+        finally
+        {
+            settlementLock.Release();
+        }
+    }
+
+    public async ValueTask<QuestCompletionResult> EnsureNewJourneyCompletedAsync()
+    {
+        if (!GameData.ChapterData.TryGetValue(
+                ChapterExcel.GetKey(NewJourneyIsMainChapter, NewJourneyDifficult, NewJourneyInternalChapterId),
+                out var chapter))
+        {
+            return new QuestCompletionResult(0, new NtfSyncPlayer());
+        }
+
+        await settlementLock.WaitAsync();
+        try
+        {
+            var sync = new NtfSyncPlayer();
+            var changed = false;
+            var completedCount = 0;
+
+            foreach (var levelId in chapter.Level.Distinct())
+            {
+                if (!GameData.ChapterLevelData.TryGetValue(levelId, out var levelConfig))
+                    continue;
+
+                completedCount++;
+                var completedState = GetCompletedState(QuestLevelType.Chapter, levelConfig);
+                var stateAttr = Player.Attributes.GetOrCreate(LevelStateGroupId, levelId);
+                if ((stateAttr.Val & completedState) != completedState)
+                {
+                    stateAttr.Val |= completedState;
+                    Player.Attributes.SyncTo(sync, stateAttr);
+                    changed = true;
+                }
+
+                var passAttr = Player.Attributes.GetOrCreate(LevelPassGroupId, levelId);
+                if (passAttr.Val == 0)
+                {
+                    passAttr.Val = 1;
+                    Player.Attributes.SyncTo(sync, passAttr);
+                    changed = true;
+                }
+            }
+
+            if (changed)
+                DatabaseHelper.SaveDatabaseType(Player.Data);
+
+            return new QuestCompletionResult(completedCount, sync);
         }
         finally
         {

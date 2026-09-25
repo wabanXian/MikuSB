@@ -225,7 +225,18 @@ public class PlayerInstance(PlayerGameData data)
         if (!Initialized) await InitialPlayerManager();
         Data.EnsureDisplayName();
         await CharacterManager.RepairCharacterWeapons();
-        if (!UseProgressionMode()) await EnsureSupplies();
+        if (UseProgressionMode())
+        {
+            if (ConfigManager.Config.Progression.AutoCompleteNewJourney)
+            {
+                await QuestManager.EnsureNewJourneyCompletedAsync();
+                await QuestManager.ClaimChapterStarAwardsAsync(true, 1, 25, -1);
+            }
+        }
+        else
+        {
+            await EnsureSupplies();
+        }
     }
 
     public IEnumerable<BaseGameItemInfo> GetSupplyItems() =>
