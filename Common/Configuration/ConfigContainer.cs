@@ -90,6 +90,8 @@ public class ProgressionOptions
         [5, 4, 1, 1, 1000]
     ];
     public LevelClearReward[] LevelClearRewards { get; set; } = [];
+    public bool RestrictMainChapterProgression { get; set; } = true;
+    public int MainChapterLevelLimit { get; set; } = 10;
 }
 
 public class LevelClearReward

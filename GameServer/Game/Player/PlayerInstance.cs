@@ -135,6 +135,7 @@ public class PlayerInstance(PlayerGameData data)
 
         await UpdateDefaultLineup(randomize: false);
         SetDefaultShowGirl();
+        SetDefaultRandomShowGirls();
         SaveNewPlayerState();
     }
 
@@ -179,6 +180,17 @@ public class PlayerInstance(PlayerGameData data)
         var firstCharacter = CharacterManager.CharacterData.Characters.FirstOrDefault();
         if (firstCharacter != null)
             SetShowItem((int)ProfileShowItemTypeEnum.SHOWITEM_GIRL, firstCharacter.Guid);
+    }
+
+    private void SetDefaultRandomShowGirls()
+    {
+        var index = 0u;
+        foreach (var character in CharacterManager.CharacterData.Characters.Take(3))
+        {
+            Attributes.Set(AttrIds.Preview.RandomShowGid, AttrIds.Preview.RandomGirlStartSid + index, character.Guid);
+            Attributes.Set(AttrIds.Preview.RandomShowFormGid, AttrIds.Preview.RandomGirlStartSid + index, 1);
+            index++;
+        }
     }
 
     private async ValueTask UpdateDefaultLineup(bool randomize)

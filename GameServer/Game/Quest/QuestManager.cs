@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Text.Json.Nodes;
+using MikuSB.Configuration;
 using MikuSB.Data;
 using MikuSB.Data.Excel;
 using MikuSB.Database;
@@ -270,12 +271,54 @@ public class QuestManager(PlayerInstance player) : BasePlayerManager(player)
         if (allLevelsCompletedForTesting)
             return true;
 
+        if (UseProgressionMode() &&
+            levelType == QuestLevelType.Chapter &&
+            ConfigManager.Config.Progression.RestrictMainChapterProgression)
+        {
+            return CanEnterProgressionChapterLevel(levelId);
+        }
+
         var predecessorIds = GetLevelConfigs(levelType)
             .Where(level => level.NextId() == levelId)
             .Select(level => level.ID)
             .ToArray();
 
         return predecessorIds.Length == 0 || predecessorIds.Any(id => GetPassCount(id) > 0);
+    }
+
+    private static bool UseProgressionMode() =>
+        string.Equals(ConfigManager.Config.ServerOption.GameMode, "Progression", StringComparison.OrdinalIgnoreCase);
+
+    private bool CanEnterProgressionChapterLevel(uint levelId)
+    {
+        var limit = Math.Max(1, ConfigManager.Config.Progression.MainChapterLevelLimit);
+        var orderedLevels = GetProgressionMainChapterLevelIds()
+            .Take(limit)
+            .ToArray();
+        var index = Array.IndexOf(orderedLevels, levelId);
+        if (index < 0)
+            return false;
+
+        if (index == 0)
+            return true;
+
+        return GetPassCount(orderedLevels[index - 1]) > 0;
+    }
+
+    private static IEnumerable<uint> GetProgressionMainChapterLevelIds()
+    {
+        var seen = new HashSet<uint>();
+        foreach (var chapter in GameData.ChapterData.Values
+                     .OfType<MainChapterExcel>()
+                     .OrderBy(x => x.Difficult)
+                     .ThenBy(x => x.ID))
+        {
+            foreach (var levelId in chapter.Level)
+            {
+                if (seen.Add(levelId) && GameData.ChapterLevelData.ContainsKey(levelId))
+                    yield return levelId;
+            }
+        }
     }
 
     public bool SyncGuideLevelPassData(JsonNode? payload)
