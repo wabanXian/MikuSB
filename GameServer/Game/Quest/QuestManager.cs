@@ -313,7 +313,7 @@ public class QuestManager(PlayerInstance player) : BasePlayerManager(player)
                      .OrderBy(x => x.Difficult)
                      .ThenBy(x => x.ID))
         {
-            foreach (var levelId in chapter.Level)
+            foreach (var levelId in chapter.OrderedLevels)
             {
                 if (seen.Add(levelId) && GameData.ChapterLevelData.ContainsKey(levelId))
                     yield return levelId;

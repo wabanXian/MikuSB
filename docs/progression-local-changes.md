@@ -111,3 +111,8 @@ Testing note: close the running server process before a full `dotnet build`, bec
 
 - Added `Chapter_NewPrologueEnterLevel` for the story screen path used by the current client. It validates the chapter level with the same progression gate as `Chapter_EnterLevel`, creates a level session, and returns an `nSeed` response.
 - Added small missing-log handlers for `Launch_OnCloseLoadingLog`, `FavMailLog`, and `Chapter_LevelFail` so normal loading, mail telemetry, and failed stage exits no longer report missing CallGS handlers.
+
+## 2026-09-25 chapter-one start follow-up
+
+- Progression keeps the main-story gate starting from chapter 1. It now uses each main chapter's `LevelSort` list instead of the raw `Level` list, so chapter 1 starts at the client-visible first plot node (`50151`) before the first combat node.
+- `DLCLogic_CheckOpenAct` returns closed in progression mode so the client does not route a fresh account through the current/latest DLC event shortcut and show a later chapter on the home battle card.

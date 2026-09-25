@@ -14,6 +14,12 @@ public abstract class ChapterExcel : ExcelResource
     public uint Difficult { get; set; }
     public List<uint> Level { get; set; } = [];
 
+    [JsonProperty("LevelSort")]
+    public JToken? LevelSortRaw { get; set; }
+
+    [JsonIgnore]
+    public IReadOnlyList<uint> OrderedLevels => ParseLevelSort(LevelSortRaw, Level);
+
     [JsonProperty("StarAward")]
     public JToken? StarAwardRaw { get; set; }
 
@@ -22,6 +28,32 @@ public abstract class ChapterExcel : ExcelResource
 
     public static ulong GetKey(bool isMain, uint difficult, uint chapterId) =>
         (isMain ? 1UL << 63 : 0) | ((ulong)chapterId << 8) | difficult;
+
+    protected static IReadOnlyList<uint> ParseLevelSort(JToken? token, IReadOnlyList<uint> fallback)
+    {
+        if (token is not JArray array)
+            return fallback;
+
+        var levels = new List<uint>();
+        AppendLevelSortValues(array, levels);
+        return levels.Count > 0 ? levels : fallback;
+    }
+
+    private static void AppendLevelSortValues(JArray array, List<uint> levels)
+    {
+        foreach (var item in array)
+        {
+            if (item is JArray nested)
+            {
+                AppendLevelSortValues(nested, levels);
+                continue;
+            }
+
+            var value = ReadUInt(item);
+            if (value > 0)
+                levels.Add(value);
+        }
+    }
 
     protected static IReadOnlyList<ChapterStarAward> ParseStarAwards(JToken? token)
     {

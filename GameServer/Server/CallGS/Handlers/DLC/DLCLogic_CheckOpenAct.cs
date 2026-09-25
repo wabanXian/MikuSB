@@ -1,3 +1,4 @@
+using MikuSB.Util;
 using MikuSB.Data;
 using MikuSB.Data.Excel;
 using MikuSB.GameServer.Game.Player;
@@ -15,6 +16,9 @@ public class DLCLogic_CheckOpenAct : CallGSHandler
 
     protected override Task<CallGSResult> HandleAsync(CallGSContext context, string param)
     {
+        if (UseProgressionMode())
+            return Task.FromResult(CallGSResult.Ok("{\"bOpen\":false}"));
+
         var now = DateTime.Now;
         var act = ResolveCurrent(GameData.DlcActivityData.Values, now);
         if (act == null)
@@ -36,6 +40,10 @@ public class DLCLogic_CheckOpenAct : CallGSHandler
 
         return Task.FromResult(CallGSResult.Ok(response.ToJsonString(), sync));
     }
+
+
+    private static bool UseProgressionMode() =>
+        string.Equals(ConfigManager.Config.ServerOption.GameMode, "Progression", StringComparison.OrdinalIgnoreCase);
 
     private static DlcActivityExcel? ResolveCurrent(IEnumerable<DlcActivityExcel> configs, DateTime now)
     {
@@ -92,3 +100,4 @@ public class DLCLogic_CheckOpenAct : CallGSHandler
         }
     }
 }
+
