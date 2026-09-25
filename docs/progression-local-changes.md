@@ -115,4 +115,11 @@ Testing note: close the running server process before a full `dotnet build`, bec
 ## 2026-09-25 chapter-one start follow-up
 
 - Progression keeps the main-story gate starting from chapter 1. It now uses each main chapter's `LevelSort` list instead of the raw `Level` list, so chapter 1 starts at the client-visible first plot node (`50151`) before the first combat node.
-- `DLCLogic_CheckOpenAct` returns closed in progression mode so the client does not route a fresh account through the current/latest DLC event shortcut and show a later chapter on the home battle card.
+- Superseded: the temporary `DLCLogic_CheckOpenAct` progression override was removed after confirming `新たな旅路` is the client resource path that unlocks legacy story.
+
+## 2026-09-25 new prologue cleanup
+
+- Progression new accounts no longer auto-grant the first three `CardData` entries. Starter characters are granted only when `Progression.StarterCharacters` explicitly lists them.
+- Removed the temporary progression-only Chapter 1 gate and the progression DLC-open override; the client should follow its resource flow through `新たな旅路` and then unlock legacy story.
+- Added direct `Chapter_NewPrologueSettlement` handling and changed new-prologue settlement to mark both plot and combat nodes as passed, so the client-side prologue chain can persist progress toward unlocking legacy main story.
+

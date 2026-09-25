@@ -92,7 +92,7 @@ public class Chapter_DealLevelSettlement : CallGSHandler<DealLevelSettlementPara
         return (tbParam?.DeepClone() ?? new JsonObject(), null);
     }
 
-    private static async ValueTask<(JsonNode Payload, NtfSyncPlayer? Sync)> HandleNewPrologueSettlementAsync(
+    internal static async ValueTask<(JsonNode Payload, NtfSyncPlayer? Sync)> HandleNewPrologueSettlementAsync(
         PlayerInstance player,
         JsonNode? tbParam)
     {
@@ -103,10 +103,7 @@ public class Chapter_DealLevelSettlement : CallGSHandler<DealLevelSettlementPara
             return (new JsonObject { ["sErr"] = "error.BadParam" }, new NtfSyncPlayer());
         }
 
-        if (!player.QuestManager.IsPlotLevel(request.LevelId))
-            return BuildEmptyNewPrologueResponse(tbParam);
-
-        var result = await player.QuestManager.SettlePlotLevelAsync(request.LevelId);
+        var result = await player.QuestManager.SettleNewPrologueLevelAsync(request.LevelId);
         if (result == null)
         {
             Logger.Error($"Rejected plot settlement: levelId={request.LevelId}");

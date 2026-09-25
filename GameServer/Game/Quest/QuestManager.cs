@@ -1,6 +1,5 @@
 using System.Numerics;
 using System.Text.Json.Nodes;
-using MikuSB.Configuration;
 using MikuSB.Data;
 using MikuSB.Data.Excel;
 using MikuSB.Database;
@@ -271,13 +270,6 @@ public class QuestManager(PlayerInstance player) : BasePlayerManager(player)
         if (allLevelsCompletedForTesting)
             return true;
 
-        if (UseProgressionMode() &&
-            levelType == QuestLevelType.Chapter &&
-            ConfigManager.Config.Progression.RestrictMainChapterProgression)
-        {
-            return CanEnterProgressionChapterLevel(levelId);
-        }
-
         var predecessorIds = GetLevelConfigs(levelType)
             .Where(level => level.NextId() == levelId)
             .Select(level => level.ID)
@@ -286,38 +278,45 @@ public class QuestManager(PlayerInstance player) : BasePlayerManager(player)
         return predecessorIds.Length == 0 || predecessorIds.Any(id => GetPassCount(id) > 0);
     }
 
-    private static bool UseProgressionMode() =>
-        string.Equals(ConfigManager.Config.ServerOption.GameMode, "Progression", StringComparison.OrdinalIgnoreCase);
-
-    private bool CanEnterProgressionChapterLevel(uint levelId)
+    public async ValueTask<QuestSettlementResult?> SettleNewPrologueLevelAsync(uint levelId)
     {
-        var limit = Math.Max(1, ConfigManager.Config.Progression.MainChapterLevelLimit);
-        var orderedLevels = GetProgressionMainChapterLevelIds()
-            .Take(limit)
-            .ToArray();
-        var index = Array.IndexOf(orderedLevels, levelId);
-        if (index < 0)
-            return false;
+        var levelConfig = ResolveLevelConfig(QuestLevelType.Chapter, levelId);
+        if (levelConfig == null)
+            return null;
 
-        if (index == 0)
-            return true;
-
-        return GetPassCount(orderedLevels[index - 1]) > 0;
-    }
-
-    private static IEnumerable<uint> GetProgressionMainChapterLevelIds()
-    {
-        var seen = new HashSet<uint>();
-        foreach (var chapter in GameData.ChapterData.Values
-                     .OfType<MainChapterExcel>()
-                     .OrderBy(x => x.Difficult)
-                     .ThenBy(x => x.ID))
+        await settlementLock.WaitAsync();
+        try
         {
-            foreach (var levelId in chapter.OrderedLevels)
-            {
-                if (seen.Add(levelId) && GameData.ChapterLevelData.ContainsKey(levelId))
-                    yield return levelId;
-            }
+            var levelState = Player.Attributes.GetOrCreate(LevelStateGroupId, levelId);
+            var levelPass = Player.Attributes.GetOrCreate(LevelPassGroupId, levelId);
+            var isFirstClear = levelPass.Val == 0;
+            var sync = new NtfSyncPlayer();
+
+            if (isFirstClear)
+                await Player.RewardManager.GrantLevelRewardsAsync(levelConfig, true, levelId, sync);
+
+            levelState.Val |= GetCompletedState(QuestLevelType.Chapter, levelConfig);
+            if (levelPass.Val == 0)
+                levelPass.Val = 1;
+
+            Player.Attributes.SyncTo(sync, levelState);
+            Player.Attributes.SyncTo(sync, levelPass);
+
+            Logger.Info($"New prologue level settlement saved. uid={Player.Uid} levelId={levelId} " +
+                        $"stateVal={levelState.Val} passVal={levelPass.Val}");
+
+            DatabaseHelper.SaveDatabaseType(Player.Data);
+            DatabaseHelper.SaveDatabaseType(Player.InventoryManager.InventoryData);
+            DatabaseHelper.SaveDatabaseType(Player.CharacterManager.CharacterData);
+
+            var rewards = isFirstClear
+                ? Player.RewardManager.ResolveLevelRewards(levelConfig, true, levelId)
+                : new JsonArray();
+            return new QuestSettlementResult(rewards, sync);
+        }
+        finally
+        {
+            settlementLock.Release();
         }
     }
 

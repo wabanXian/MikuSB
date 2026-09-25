@@ -139,25 +139,9 @@ public class PlayerInstance(PlayerGameData data)
         SaveNewPlayerState();
     }
 
-    private static IEnumerable<StarterCharacter> GetStarterCharacters()
-    {
-        var configured = ConfigManager.Config.Progression.StarterCharacters;
-        if (configured.Length > 0)
-            return configured.Where(x => x.Detail > 0 && x.Particular > 0);
-
-        return GameData.CardData.Values
-            .OrderBy(x => x.Detail)
-            .ThenBy(x => x.Particular)
-            .Take(3)
-            .Select(x => new StarterCharacter
-            {
-                Genre = (uint)x.Genre,
-                Detail = x.Detail,
-                Particular = x.Particular,
-                Level = x.Level,
-                Star = 1
-            });
-    }
+    private static IEnumerable<StarterCharacter> GetStarterCharacters() =>
+        ConfigManager.Config.Progression.StarterCharacters
+            .Where(x => x.Detail > 0 && x.Particular > 0);
 
     private void SetInitialProgressionCurrency(ProgressionOptions progression)
     {
