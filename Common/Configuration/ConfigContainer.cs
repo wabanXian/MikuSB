@@ -81,6 +81,9 @@ public class ProgressionOptions
     public uint PlayerLevel { get; set; } = 1;
     public int PlayerExp { get; set; } = 0;
     public uint Vigor { get; set; } = 120;
+    public uint Money { get; set; } = 0;
+    public uint Gold { get; set; } = 0;
+    public uint Silver { get; set; } = 0;
     public StarterCharacter[] StarterCharacters { get; set; } = [];
     public uint[][] StarterRewards { get; set; } =
     [

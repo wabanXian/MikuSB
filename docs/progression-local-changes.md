@@ -16,7 +16,7 @@ This document tracks the local work to turn MikuSB from a full GM sandbox into a
 
 - `ServerOption.GameMode`, defaulting to `Sandbox`.
 - `Progression`, a new config section for progression-mode new player defaults.
-- `Progression.PlayerLevel`, `PlayerExp`, and `Vigor` for starting account state.
+- `Progression.PlayerLevel`, `PlayerExp`, `Vigor`, `Money`, `Gold`, and `Silver` for starting account state.
 - `Progression.StarterCharacters` for explicit starter character GDPL entries.
 - `Progression.StarterRewards` for GDPL reward rows granted on account creation.
 
@@ -33,6 +33,9 @@ Example config shape:
     "PlayerLevel": 1,
     "PlayerExp": 0,
     "Vigor": 120,
+    "Money": 0,
+    "Gold": 0,
+    "Silver": 0,
     "StarterCharacters": [
       { "Genre": 1, "Detail": 1, "Particular": 1, "Level": 1, "Star": 1 }
     ],
@@ -51,6 +54,8 @@ Example config shape:
 - `Progression`: starts at the configured player level, grants starter characters, grants starter rewards through the existing `RewardManager`, and creates a default lineup from the starter roster.
 
 `OnEnterGame` no longer auto-fills every supply item when `GameMode` is `Progression`.
+
+Progression mode also skips the sandbox bootstrap that grants unlimited currency and full furniture unlock attributes. New accounts set their default profile/home show girl to the first starter character via `SHOWITEM_GIRL`.
 
 ### Level clear rewards
 

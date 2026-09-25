@@ -7,6 +7,7 @@ using MikuSB.Database.Account;
 using MikuSB.Database.Inventory;
 using MikuSB.Database.Player;
 using MikuSB.Enums.Item;
+using MikuSB.Enums.Player;
 using MikuSB.GameServer.Command;
 using MikuSB.GameServer.Game.Character;
 using MikuSB.GameServer.Game.Inventory;
@@ -112,6 +113,7 @@ public class PlayerInstance(PlayerGameData data)
         Data.Level = Math.Max(1, progression.PlayerLevel);
         Data.Exp = Math.Max(0, progression.PlayerExp);
         Data.Vigor = progression.Vigor;
+        SetInitialProgressionCurrency(progression);
 
         foreach (var starter in GetStarterCharacters())
         {
@@ -132,6 +134,7 @@ public class PlayerInstance(PlayerGameData data)
             await RewardManager.GrantConfiguredRewardsAsync(rewards, new NtfSyncPlayer());
 
         await UpdateDefaultLineup(randomize: false);
+        SetDefaultShowGirl();
         SaveNewPlayerState();
     }
 
@@ -153,6 +156,26 @@ public class PlayerInstance(PlayerGameData data)
                 Level = x.Level,
                 Star = 1
             });
+    }
+
+    private void SetInitialProgressionCurrency(ProgressionOptions progression)
+    {
+        SetCurrency(AttrIds.Currency.Money, progression.Money);
+        SetCurrency(AttrIds.Currency.Gold, progression.Gold);
+        SetCurrency(AttrIds.Currency.Silver, progression.Silver);
+    }
+
+    private void SetCurrency(uint moneyType, uint amount)
+    {
+        var sid = AttrIds.Currency.GetSid(moneyType);
+        Attributes.Set(AttrIds.Currency.GroupId, sid, amount);
+    }
+
+    private void SetDefaultShowGirl()
+    {
+        var firstCharacter = CharacterManager.CharacterData.Characters.FirstOrDefault();
+        if (firstCharacter != null)
+            SetShowItem((int)ProfileShowItemTypeEnum.SHOWITEM_GIRL, firstCharacter.Guid);
     }
 
     private async ValueTask UpdateDefaultLineup(bool randomize)
@@ -441,8 +464,8 @@ public class PlayerInstance(PlayerGameData data)
         QuestManager.RemoveLegacyLevelUnlocks();
         RikiManager.EnsureOwnedItemsUnlocked();
 
-        var bootstrapAttrs = BuildLobbyBootstrapAttrs().ToList();
-        if (additional) bootstrapAttrs.AddRange(BuildGirlFurnitureAttrs());
+        var bootstrapAttrs = BuildLobbyBootstrapAttrs(includeUnlimitedCurrency: !UseProgressionMode()).ToList();
+        if (additional && !UseProgressionMode()) bootstrapAttrs.AddRange(BuildGirlFurnitureAttrs());
         var seenAttrs = new HashSet<(uint Gid, uint Sid)>();
 
         foreach (var (gid, sid, value) in bootstrapAttrs)
@@ -510,7 +533,7 @@ public class PlayerInstance(PlayerGameData data)
             yield return (101, sid, furnitureUnlockedValue);
     }
 
-    private static IEnumerable<(uint Gid, uint Sid, uint Value)> BuildLobbyBootstrapAttrs()
+    private static IEnumerable<(uint Gid, uint Sid, uint Value)> BuildLobbyBootstrapAttrs(bool includeUnlimitedCurrency)
     {
         // GuideLogic uses group 4. Value 999 is safely above every configured step count,
         // so the client treats these guides as already completed.
@@ -523,9 +546,12 @@ public class PlayerInstance(PlayerGameData data)
         yield return (187, 1, 2);
 
         // Cash.GetMoneyCount uses group 1 with sid = moneyId * 2 + 1 for most currencies.
-        // Fill a wide currency id range so every in-game currency starts effectively unlimited.
-        for (uint moneyId = 1; moneyId <= 200; moneyId++)
-            yield return (1, moneyId * 2 + 1, 999_999_999);
+        // Sandbox mode fills a wide currency id range so every in-game currency starts effectively unlimited.
+        if (includeUnlimitedCurrency)
+        {
+            for (uint moneyId = 1; moneyId <= 200; moneyId++)
+                yield return (1, moneyId * 2 + 1, 999_999_999);
+        }
 
         for (uint guideId = 1; guideId <= 150; guideId++)
             yield return (4, guideId, 999);
