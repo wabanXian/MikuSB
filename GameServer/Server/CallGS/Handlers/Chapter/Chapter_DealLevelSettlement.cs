@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using MikuSB.Data;
+using MikuSB.Data.Excel;
 using MikuSB.GameServer.Game.Player;
 using MikuSB.GameServer.Game.Quest;
 using MikuSB.GameServer.Game.BossPvp;
@@ -17,6 +19,9 @@ namespace MikuSB.GameServer.Server.CallGS.Handlers.Chapter;
 public class Chapter_DealLevelSettlement : CallGSHandler<DealLevelSettlementParam>
 {
     private static readonly Logger Logger = new("Chapter");
+    private const bool NewJourneyIsMainChapter = true;
+    private const uint NewJourneyDifficult = 1;
+    private const uint NewJourneyInternalChapterId = 25;
 
     protected override async Task<CallGSResult> HandleAsync(CallGSContext context, DealLevelSettlementParam request)
     {
@@ -113,8 +118,25 @@ public class Chapter_DealLevelSettlement : CallGSHandler<DealLevelSettlementPara
         var response = new JsonObject();
         if (tbParam is JsonObject source && source.TryGetPropertyValue("bWaitServer", out var bWaitServer))
             response["bWaitServer"] = bWaitServer?.DeepClone();
-        response["tbShowAward"] = FlattenRewardCategories(result.Value.Rewards);
-        return (response, result.Value.Sync);
+
+        var showAwards = FlattenRewardCategories(result.Value.Rewards);
+        var sync = result.Value.Sync;
+        if (IsNewJourneyLevel(request.LevelId))
+        {
+            var chapterAward = await player.QuestManager.ClaimChapterStarAwardsAsync(
+                NewJourneyIsMainChapter,
+                NewJourneyDifficult,
+                NewJourneyInternalChapterId,
+                -1);
+            if (chapterAward != null)
+            {
+                sync.MergeFrom(chapterAward.Value.Sync);
+                AppendAwardResponse(showAwards, chapterAward.Value.Response);
+            }
+        }
+
+        response["tbShowAward"] = showAwards;
+        return (response, sync);
     }
 
     private static (JsonNode Payload, NtfSyncPlayer? Sync) BuildEmptyNewPrologueResponse(JsonNode? tbParam)
@@ -140,6 +162,21 @@ public class Chapter_DealLevelSettlement : CallGSHandler<DealLevelSettlementPara
 
         return rewards;
     }
+
+    private static void AppendAwardResponse(JsonArray rewards, JsonObject response)
+    {
+        if (!response.TryGetPropertyValue("tbAward", out var awardNode) || awardNode is not JsonArray awards)
+            return;
+
+        foreach (var award in awards)
+            rewards.Add(award?.DeepClone());
+    }
+
+    private static bool IsNewJourneyLevel(uint levelId) =>
+        GameData.ChapterData.TryGetValue(
+            ChapterExcel.GetKey(NewJourneyIsMainChapter, NewJourneyDifficult, NewJourneyInternalChapterId),
+            out var chapter) &&
+        chapter.Level.Contains(levelId);
 
     private static async ValueTask<(JsonNode Payload, NtfSyncPlayer Sync)> HandleLevelSettlementAsync(
         PlayerInstance player,
