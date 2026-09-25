@@ -16,6 +16,8 @@ public class GachaExcel : ExcelResource
     public uint? ProtectTag { get; set; }
     public uint? ProtectType { get; set; }
     public JToken? ProtectCount { get; set; }
+    public List<List<uint>> CastOne { get; set; } = [];
+    public List<List<uint>> CastTen { get; set; } = [];
     public uint? UpSelect { get; set; }
 
     public override uint GetId() => ID;

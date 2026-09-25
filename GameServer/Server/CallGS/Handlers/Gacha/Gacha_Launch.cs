@@ -2,6 +2,7 @@ using MikuSB.Data;
 using MikuSB.Data.Excel;
 using MikuSB.Database;
 using MikuSB.Database.Player;
+using MikuSB.Database.Inventory;
 using MikuSB.Enums.Item;
 using MikuSB.GameServer.Game.Player;
 using MikuSB.Proto;
@@ -56,6 +57,14 @@ public class Gacha_Launch : CallGSHandler<GachaLaunchParam>
             return CallGSResult.Error("error.BadParam");
         }
 
+        var drawCost = ResolveDrawCost(gachaCfg, req.NTime);
+        if (drawCost == null)
+            return CallGSResult.Error("error.BadParam");
+
+        var sync = new NtfSyncPlayer();
+        if (!TryConsumeDrawCost(player, drawCost, sync))
+            return CallGSResult.Error("tip.Mall_Cost_Not_Enough");
+
         var pityState = LoadPityState(player, gachaCfg);
         var upSelectState = LoadUpSelectState(player, gachaCfg);
         var config = BuildRuntimeConfig(gachaCfg, poolNames);
@@ -63,7 +72,6 @@ public class Gacha_Launch : CallGSHandler<GachaLaunchParam>
         var tbNew = new List<int>();
         var tbTrigger = new List<bool>();
         var syncItems = new List<Item>();
-        var sync = new NtfSyncPlayer();
 
         for (int i = 0; i < req.NTime; i++)
         {
@@ -172,6 +180,44 @@ public class Gacha_Launch : CallGSHandler<GachaLaunchParam>
         return CallGSResult.Ok(rsp, sync);
     }
 
+    private static IReadOnlyList<uint>? ResolveDrawCost(GachaExcel gachaCfg, int drawCount)
+    {
+        var costs = drawCount == 10 ? gachaCfg.CastTen : gachaCfg.CastOne;
+        var cost = costs.FirstOrDefault(x => x.Count >= 5 && x[4] == drawCount);
+        return cost ?? costs.FirstOrDefault(x => x.Count >= 5);
+    }
+
+    private static bool TryConsumeDrawCost(PlayerInstance player, IReadOnlyList<uint> cost, NtfSyncPlayer sync)
+    {
+        if (cost.Count < 5)
+            return false;
+
+        var templateId = GameResourceTemplateId.FromGdpl(cost[0], cost[1], cost[2], cost[3]);
+        var needCount = cost[4];
+        var item = player.InventoryManager.GetNormalItemByTemplateId(templateId);
+        if (item == null || item.ItemCount < needCount)
+            return false;
+
+        item.ItemCount -= needCount;
+        if (item.ItemCount == 0)
+        {
+            player.InventoryManager.InventoryData.Items.Remove(item.UniqueId);
+            sync.Items.Add(BuildRemovedItemProto(item));
+        }
+        else
+        {
+            sync.Items.Add(item.ToProto());
+        }
+
+        return true;
+    }
+
+    private static Item BuildRemovedItemProto(BaseGameItemInfo item)
+    {
+        var proto = item.ToProto();
+        proto.Count = 0;
+        return proto;
+    }
     private static bool HasGuaranteedTenRarity(GachaRuntimeConfig config, List<List<uint>> awards)
     {
         if (awards.Count == 0)
