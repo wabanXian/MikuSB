@@ -19,7 +19,7 @@ This document tracks the local work to turn MikuSB from a full GM sandbox into a
 - `Progression.PlayerLevel`, `PlayerExp`, `Vigor`, `Money`, `Gold`, and `Silver` for starting account state.
 - `Progression.StarterCharacters` for explicit starter character GDPL entries.
 - `Progression.StarterRewards` for GDPL reward rows granted on account creation.
-- `Progression.AutoCompleteNewJourney` to mark only `新たな旅路` completed on login, which opens the legacy story path without completing later chapters.
+- `Progression.AutoCompleteLegacyStoryPrerequisites` to mark the legacy-story prerequisite chain completed on login, including `新たな旅路`, `朔州・下`, and `フィロゾア編`, without completing later chapters.
 
 `Sandbox` keeps the original behavior so existing GM-style usage is not broken. Set `ServerOption.GameMode` to `Progression` to use the new limited starter flow.
 
@@ -41,7 +41,7 @@ Example config shape:
     "StarterRewards": [
       [5, 4, 1, 1, 1000]
     ],
-    "AutoCompleteNewJourney": true
+    "AutoCompleteLegacyStoryPrerequisites": true
   }
 }
 ```
@@ -131,5 +131,5 @@ Testing note: close the running server process before a full `dotnet build`, bec
 
 ## 2026-09-25 new journey skip and shop follow-up
 
-- Added `Progression.AutoCompleteNewJourney`, defaulting to `true`, so progression accounts can skip the two `新たな旅路` chapter blocks and unlock the legacy story path without using the global `/quest complete_all` testing switch. The helper only marks internal resource chapter id `25` levels as passed and claims its chapter-star award once.
+- Added `Progression.AutoCompleteLegacyStoryPrerequisites`, defaulting to `true`, so progression accounts can skip the required pre-legacy chain and unlock the legacy story path without using the global `/quest complete_all` testing switch. The helper marks internal resource chapter ids `20` through `27` as passed, covering `新たな旅路`, `朔州・下`, and `フィロゾア編`, and still claims the `新たな旅路` chapter-star award once.
 - Added a minimal `ShopLogic_GetGoodsList` handler that returns an empty ordinary-shop list instead of logging a missing CallGS handler. The current server still has detailed purchase support under `IBLogic_*`; full ordinary-shop modeling against `Resources/shop/goods.json` remains separate work.

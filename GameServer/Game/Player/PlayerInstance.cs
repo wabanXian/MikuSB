@@ -227,9 +227,9 @@ public class PlayerInstance(PlayerGameData data)
         await CharacterManager.RepairCharacterWeapons();
         if (UseProgressionMode())
         {
-            if (ConfigManager.Config.Progression.AutoCompleteNewJourney)
+            if (ConfigManager.Config.Progression.AutoCompleteLegacyStoryPrerequisites)
             {
-                await QuestManager.EnsureNewJourneyCompletedAsync();
+                await QuestManager.EnsureLegacyStoryPrerequisitesCompletedAsync();
                 await QuestManager.ClaimChapterStarAwardsAsync(true, 1, 25, -1);
             }
         }

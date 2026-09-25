@@ -89,7 +89,7 @@ public class ProgressionOptions
     [
         [5, 4, 1, 1, 1000]
     ];
-    public bool AutoCompleteNewJourney { get; set; } = true;
+    public bool AutoCompleteLegacyStoryPrerequisites { get; set; } = true;
     public LevelClearReward[] LevelClearRewards { get; set; } = [];
 }
 

@@ -32,9 +32,9 @@ public class QuestManager(PlayerInstance player) : BasePlayerManager(player)
     private const uint LevelStarMask = 0b111;
     private const int MaxChapterStarAwardIndex = 31;
     private const uint LegacyUnlockedLevelPassTime = 1_700_000_000;
-    private const bool NewJourneyIsMainChapter = true;
-    private const uint NewJourneyDifficult = 1;
-    private const uint NewJourneyInternalChapterId = 25;
+    private const bool LegacyStoryPrerequisiteIsMainChapter = true;
+    private const uint LegacyStoryPrerequisiteDifficult = 1;
+    private static readonly uint[] LegacyStoryPrerequisiteChapterIds = [20, 21, 22, 23, 24, 25, 26, 27];
     private static readonly Logger Logger = new("Quest");
     private readonly SemaphoreSlim settlementLock = new(1, 1);
     private bool allLevelsCompletedForTesting = player.Data.CompleteAllQuestLevels;
@@ -118,15 +118,8 @@ public class QuestManager(PlayerInstance player) : BasePlayerManager(player)
         }
     }
 
-    public async ValueTask<QuestCompletionResult> EnsureNewJourneyCompletedAsync()
+    public async ValueTask<QuestCompletionResult> EnsureLegacyStoryPrerequisitesCompletedAsync()
     {
-        if (!GameData.ChapterData.TryGetValue(
-                ChapterExcel.GetKey(NewJourneyIsMainChapter, NewJourneyDifficult, NewJourneyInternalChapterId),
-                out var chapter))
-        {
-            return new QuestCompletionResult(0, new NtfSyncPlayer());
-        }
-
         await settlementLock.WaitAsync();
         try
         {
@@ -134,27 +127,37 @@ public class QuestManager(PlayerInstance player) : BasePlayerManager(player)
             var changed = false;
             var completedCount = 0;
 
-            foreach (var levelId in chapter.Level.Distinct())
+            foreach (var chapterId in LegacyStoryPrerequisiteChapterIds)
             {
-                if (!GameData.ChapterLevelData.TryGetValue(levelId, out var levelConfig))
-                    continue;
-
-                completedCount++;
-                var completedState = GetCompletedState(QuestLevelType.Chapter, levelConfig);
-                var stateAttr = Player.Attributes.GetOrCreate(LevelStateGroupId, levelId);
-                if ((stateAttr.Val & completedState) != completedState)
+                if (!GameData.ChapterData.TryGetValue(
+                        ChapterExcel.GetKey(LegacyStoryPrerequisiteIsMainChapter, LegacyStoryPrerequisiteDifficult, chapterId),
+                        out var chapter))
                 {
-                    stateAttr.Val |= completedState;
-                    Player.Attributes.SyncTo(sync, stateAttr);
-                    changed = true;
+                    continue;
                 }
 
-                var passAttr = Player.Attributes.GetOrCreate(LevelPassGroupId, levelId);
-                if (passAttr.Val == 0)
+                foreach (var levelId in chapter.Level.Distinct())
                 {
-                    passAttr.Val = 1;
-                    Player.Attributes.SyncTo(sync, passAttr);
-                    changed = true;
+                    if (!GameData.ChapterLevelData.TryGetValue(levelId, out var levelConfig))
+                        continue;
+
+                    completedCount++;
+                    var completedState = GetCompletedState(QuestLevelType.Chapter, levelConfig);
+                    var stateAttr = Player.Attributes.GetOrCreate(LevelStateGroupId, levelId);
+                    if ((stateAttr.Val & completedState) != completedState)
+                    {
+                        stateAttr.Val |= completedState;
+                        Player.Attributes.SyncTo(sync, stateAttr);
+                        changed = true;
+                    }
+
+                    var passAttr = Player.Attributes.GetOrCreate(LevelPassGroupId, levelId);
+                    if (passAttr.Val == 0)
+                    {
+                        passAttr.Val = 1;
+                        Player.Attributes.SyncTo(sync, passAttr);
+                        changed = true;
+                    }
                 }
             }
 
