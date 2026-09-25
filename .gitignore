@@ -371,3 +371,9 @@ FodyWeavers.xsd
 /Lua_Script
 /.note
 /Snowbreak_Data
+
+# MikuSB local runtime state
+/Config/Database/
+/Resources/
+/Resources.copy-before-link*/
+/Config/Logs/

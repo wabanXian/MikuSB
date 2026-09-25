@@ -1,6 +1,7 @@
 using Google.Protobuf;
 using MikuSB.Data;
 using MikuSB.Data.Excel;
+using MikuSB.Configuration;
 using MikuSB.Database;
 using MikuSB.Database.Account;
 using MikuSB.Database.Inventory;
@@ -65,39 +66,114 @@ public class PlayerInstance(PlayerGameData data)
         var t = Task.Run(async () =>
         {
             await InitialPlayerManager();
-            foreach (var skinCard in GameData.CardSkinData.Values)
-            {
-                await InventoryManager.AddSkinItem((ItemTypeEnum)skinCard.Genre, skinCard.Detail, skinCard.Particular, skinCard.Level, false);
-            }
-            foreach (var ar in GameData.ArItemData.Values)
-            {
-                await InventoryManager.AddArItem((ItemTypeEnum)ar.Genre, ar.Detail, ar.Particular, ar.Level, false);
-            }
-            foreach (var manifest in GameData.ManifestationData.Values)
-            {
-                await InventoryManager.AddManifestationItem((ItemTypeEnum)manifest.Genre, manifest.Detail, manifest.Particular, manifest.Level, false);
-            }
-            foreach (var card in GameData.CardData.Values)
-            {
-                await CharacterManager.AddCharacter((ItemTypeEnum)card.Genre, card.Detail, card.Particular, card.Level, sendPacket:false);
-            }
-            foreach (var supplies in GameData.AllSuppliesData)
-            {
-                await InventoryManager.AddSuppliesItem(supplies, 90000, false);
-            }
-
-            var selected = CharacterManager.CharacterData.Characters
-                .OrderBy(_ => Guid.NewGuid())
-                .Take(3)
-                .Select(x => x.Guid)
-                .ToList();
-
-            await LineupManager.UpdateLineup(1, selected[0], selected[1], selected[2],false);
-
+            if (UseProgressionMode())
+                await InitializeProgressionNewPlayer();
+            else
+                await InitializeSandboxNewPlayer();
         });
         t.Wait();
 
         Initialized = true;
+    }
+
+    private static bool UseProgressionMode() =>
+        string.Equals(ConfigManager.Config.ServerOption.GameMode, "Progression", StringComparison.OrdinalIgnoreCase);
+
+    private async ValueTask InitializeSandboxNewPlayer()
+    {
+        foreach (var skinCard in GameData.CardSkinData.Values)
+        {
+            await InventoryManager.AddSkinItem((ItemTypeEnum)skinCard.Genre, skinCard.Detail, skinCard.Particular, skinCard.Level, false);
+        }
+        foreach (var ar in GameData.ArItemData.Values)
+        {
+            await InventoryManager.AddArItem((ItemTypeEnum)ar.Genre, ar.Detail, ar.Particular, ar.Level, false);
+        }
+        foreach (var manifest in GameData.ManifestationData.Values)
+        {
+            await InventoryManager.AddManifestationItem((ItemTypeEnum)manifest.Genre, manifest.Detail, manifest.Particular, manifest.Level, false);
+        }
+        foreach (var card in GameData.CardData.Values)
+        {
+            await CharacterManager.AddCharacter((ItemTypeEnum)card.Genre, card.Detail, card.Particular, card.Level, sendPacket: false);
+        }
+        foreach (var supplies in GameData.AllSuppliesData)
+        {
+            await InventoryManager.AddSuppliesItem(supplies, 90000, false);
+        }
+
+        await UpdateDefaultLineup(randomize: true);
+        SaveNewPlayerState();
+    }
+
+    private async ValueTask InitializeProgressionNewPlayer()
+    {
+        var progression = ConfigManager.Config.Progression;
+        Data.Level = Math.Max(1, progression.PlayerLevel);
+        Data.Exp = Math.Max(0, progression.PlayerExp);
+        Data.Vigor = progression.Vigor;
+
+        foreach (var starter in GetStarterCharacters())
+        {
+            await CharacterManager.AddCharacter(
+                (ItemTypeEnum)starter.Genre,
+                starter.Detail,
+                starter.Particular,
+                starter.Level,
+                starter.Star,
+                sendPacket: false);
+        }
+
+        var rewards = progression.StarterRewards
+            .Where(row => row.Length >= 5 && row[4] > 0)
+            .Select(row => (IReadOnlyList<uint>)row)
+            .ToArray();
+        if (rewards.Length > 0)
+            await RewardManager.GrantConfiguredRewardsAsync(rewards, new NtfSyncPlayer());
+
+        await UpdateDefaultLineup(randomize: false);
+        SaveNewPlayerState();
+    }
+
+    private static IEnumerable<StarterCharacter> GetStarterCharacters()
+    {
+        var configured = ConfigManager.Config.Progression.StarterCharacters;
+        if (configured.Length > 0)
+            return configured.Where(x => x.Detail > 0 && x.Particular > 0);
+
+        return GameData.CardData.Values
+            .OrderBy(x => x.Detail)
+            .ThenBy(x => x.Particular)
+            .Take(3)
+            .Select(x => new StarterCharacter
+            {
+                Genre = (uint)x.Genre,
+                Detail = x.Detail,
+                Particular = x.Particular,
+                Level = x.Level,
+                Star = 1
+            });
+    }
+
+    private async ValueTask UpdateDefaultLineup(bool randomize)
+    {
+        var characters = CharacterManager.CharacterData.Characters.AsEnumerable();
+        if (randomize)
+            characters = characters.OrderBy(_ => Guid.NewGuid());
+
+        var selected = characters.Take(3).Select(x => x.Guid).ToList();
+        while (selected.Count < 3)
+            selected.Add(0);
+
+        await LineupManager.UpdateLineup(1, selected[0], selected[1], selected[2], false);
+    }
+
+    private void SaveNewPlayerState()
+    {
+        DatabaseHelper.SaveDatabaseType(Data);
+        DatabaseHelper.SaveDatabaseType(InventoryManager.InventoryData);
+        DatabaseHelper.SaveDatabaseType(CharacterManager.CharacterData);
+        DatabaseHelper.SaveDatabaseType(LineupManager.LineupData);
     }
     private async ValueTask InitialPlayerManager()
     {
@@ -127,7 +203,7 @@ public class PlayerInstance(PlayerGameData data)
         if (!Initialized) await InitialPlayerManager();
         Data.EnsureDisplayName();
         await CharacterManager.RepairCharacterWeapons();
-        await EnsureSupplies();
+        if (!UseProgressionMode()) await EnsureSupplies();
     }
 
     public IEnumerable<BaseGameItemInfo> GetSupplyItems() =>

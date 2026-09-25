@@ -4,6 +4,7 @@ using MikuSB.Data;
 using MikuSB.Data.Excel;
 using MikuSB.Database;
 using MikuSB.GameServer.Game.Player;
+using MikuSB.GameServer.Game.Progression;
 using MikuSB.Proto;
 using MikuSB.Util;
 
@@ -168,6 +169,12 @@ public class QuestManager(PlayerInstance player) : BasePlayerManager(player)
 
             var sync = new NtfSyncPlayer();
             await Player.RewardManager.GrantLevelRewardsAsync(levelConfig, isFirstClear, seed, sync);
+            var progressionRewards = await ProgressionRewardService.GrantLevelClearRewardsAsync(
+                Player,
+                levelType,
+                levelId,
+                isFirstClear,
+                sync);
 
             levelState.Val |= (uint)starMask & LevelStarMask;
             if (levelType == QuestLevelType.Daily)
@@ -184,9 +191,11 @@ public class QuestManager(PlayerInstance player) : BasePlayerManager(player)
             DatabaseHelper.SaveDatabaseType(Player.Data);
             DatabaseHelper.SaveDatabaseType(Player.InventoryManager.InventoryData);
             DatabaseHelper.SaveDatabaseType(Player.CharacterManager.CharacterData);
-            return new QuestSettlementResult(
-                Player.RewardManager.ResolveLevelRewards(levelConfig, isFirstClear, seed),
-                sync);
+            var rewards = Player.RewardManager.ResolveLevelRewards(levelConfig, isFirstClear, seed);
+            if (progressionRewards.Count > 0)
+                rewards.Add(progressionRewards);
+
+            return new QuestSettlementResult(rewards, sync);
         }
         finally
         {
@@ -212,6 +221,12 @@ public class QuestManager(PlayerInstance player) : BasePlayerManager(player)
             var levelPass = Player.Attributes.GetOrCreate(LevelPassGroupId, levelId);
             var sync = new NtfSyncPlayer();
             await Player.RewardManager.GrantLevelRewardsAsync(levelConfig, true, levelId, sync);
+            var progressionRewards = await ProgressionRewardService.GrantLevelClearRewardsAsync(
+                Player,
+                QuestLevelType.Chapter,
+                levelId,
+                true,
+                sync);
 
             levelState.Val |= 1u << 8;
             if (levelPass.Val == 0)
@@ -226,9 +241,11 @@ public class QuestManager(PlayerInstance player) : BasePlayerManager(player)
             DatabaseHelper.SaveDatabaseType(Player.Data);
             DatabaseHelper.SaveDatabaseType(Player.InventoryManager.InventoryData);
             DatabaseHelper.SaveDatabaseType(Player.CharacterManager.CharacterData);
-            return new QuestSettlementResult(
-                Player.RewardManager.ResolveLevelRewards(levelConfig, true, levelId),
-                sync);
+            var rewards = Player.RewardManager.ResolveLevelRewards(levelConfig, true, levelId);
+            if (progressionRewards.Count > 0)
+                rewards.Add(progressionRewards);
+
+            return new QuestSettlementResult(rewards, sync);
         }
         finally
         {

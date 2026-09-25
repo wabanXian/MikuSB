@@ -1,4 +1,4 @@
-﻿using MikuSB.Proto;
+using MikuSB.Proto;
 
 namespace MikuSB.Configuration;
 
@@ -8,6 +8,7 @@ public class ConfigContainer
     public GameServerConfig GameServer { get; set; } = new();
     public PathConfig Path { get; set; } = new();
     public ServerOption ServerOption { get; set; } = new();
+    public ProgressionOptions Progression { get; set; } = new();
     public ProxyOptions Proxy { get; set; } = new();
     public LoaderOptions Loader { get; set; } = new();
 }
@@ -59,6 +60,7 @@ public class ServerOption
 {
     public string Language { get; set; } = "EN";
     public string FallbackLanguage { get; set; } = "EN";
+    public string GameMode { get; set; } = "Sandbox";
     public string[] DefaultPermissions { get; set; } = ["Admin"];
     public ServerProfile ServerProfile { get; set; } = new();
     public bool EnableGmMenu { get; set; } = false;
@@ -74,7 +76,34 @@ public class ServerOption
     public bool DebugDetailMessage { get; set; } = true;
     public bool DebugNoHandlerPacket { get; set; } = true;
 }
+public class ProgressionOptions
+{
+    public uint PlayerLevel { get; set; } = 1;
+    public int PlayerExp { get; set; } = 0;
+    public uint Vigor { get; set; } = 120;
+    public StarterCharacter[] StarterCharacters { get; set; } = [];
+    public uint[][] StarterRewards { get; set; } =
+    [
+        [5, 4, 1, 1, 1000]
+    ];
+    public LevelClearReward[] LevelClearRewards { get; set; } = [];
+}
 
+public class LevelClearReward
+{
+    public string LevelType { get; set; } = "Chapter";
+    public uint LevelId { get; set; }
+    public bool FirstClearOnly { get; set; } = true;
+    public uint[][] Rewards { get; set; } = [];
+}
+public class StarterCharacter
+{
+    public uint Genre { get; set; } = 1;
+    public uint Detail { get; set; }
+    public uint Particular { get; set; }
+    public uint Level { get; set; } = 1;
+    public uint Star { get; set; } = 1;
+}
 public class ServerProfile
 {
     public string Name { get; set; } = "Miku-chan";
