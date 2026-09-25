@@ -160,6 +160,9 @@ public class PlayerInstance(PlayerGameData data)
 
     private void SetInitialProgressionCurrency(ProgressionOptions progression)
     {
+        for (uint moneyId = 1; moneyId <= 200; moneyId++)
+            SetCurrency(moneyId, 0);
+
         SetCurrency(AttrIds.Currency.Money, progression.Money);
         SetCurrency(AttrIds.Currency.Gold, progression.Gold);
         SetCurrency(AttrIds.Currency.Silver, progression.Silver);

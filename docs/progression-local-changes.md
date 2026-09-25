@@ -55,7 +55,7 @@ Example config shape:
 
 `OnEnterGame` no longer auto-fills every supply item when `GameMode` is `Progression`.
 
-Progression mode also skips the sandbox bootstrap that grants unlimited currency and full furniture unlock attributes. New accounts set their default profile/home show girl to the first starter character via `SHOWITEM_GIRL`.
+Progression mode also skips the sandbox bootstrap that grants unlimited currency and full furniture unlock attributes. It explicitly syncs currency ids 1..200 to 0 before applying configured starter currency values, because some clients display fallback values when a currency attr is absent. New accounts set their default profile/home show girl to the first starter character via `SHOWITEM_GIRL`. The missing `PlayerSetting_ChangeAccountShowCard` API is implemented so the client can save account showcase card slots.
 
 ### Level clear rewards
 
